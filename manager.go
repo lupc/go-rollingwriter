@@ -1,7 +1,9 @@
 package rollingwriter
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,16 +20,18 @@ type manager struct {
 	context       chan int
 	wg            sync.WaitGroup
 	lock          sync.Mutex
+	rollingNum    int32 //滚动编号
 }
 
 // NewManager generate the Manager with config
 func NewManager(c *Config) (Manager, error) {
 	m := &manager{
-		startAt: time.Now(),
-		cr:      cron.New(),
-		fire:    make(chan string),
-		context: make(chan int),
-		wg:      sync.WaitGroup{},
+		startAt:    time.Now(),
+		cr:         cron.New(),
+		fire:       make(chan string),
+		context:    make(chan int),
+		wg:         sync.WaitGroup{},
+		rollingNum: 0,
 	}
 
 	// start the manager according to policy
@@ -88,23 +92,25 @@ func (m *manager) Close() {
 
 // ParseVolume parse the config volume format and return threshold
 func (m *manager) ParseVolume(c *Config) {
-	s := []byte(strings.ToUpper(c.RollingVolumeSize))
-	if !(strings.Contains(string(s), "K") || strings.Contains(string(s), "KB") ||
-		strings.Contains(string(s), "M") || strings.Contains(string(s), "MB") ||
-		strings.Contains(string(s), "G") || strings.Contains(string(s), "GB") ||
-		strings.Contains(string(s), "T") || strings.Contains(string(s), "TB")) {
+	s := strings.ToUpper(c.RollingVolumeSize)
+	s = strings.TrimRight(s, "B")
 
-		// set the default threshold with 1GB
-		m.thresholdSize = 1024 * 1024 * 1024
+	if !(strings.Contains(string(s), "K") ||
+		strings.Contains(string(s), "M") ||
+		strings.Contains(string(s), "G") ||
+		strings.Contains(string(s), "T")) {
+
+		// set the default threshold with 100M
+		m.thresholdSize = 100 * 1024 * 1024
 		return
 	}
 
-	var unit int64 = 1
-	p, _ := strconv.Atoi(string(s[:len(s)-1]))
+	var unit float64 = 1
+	p, _ := strconv.ParseFloat(string(s[:len(s)-1]), 64)
 	unitstr := string(s[len(s)-1])
 
 	if s[len(s)-1] == 'B' {
-		p, _ = strconv.Atoi(string(s[:len(s)-2]))
+		p, _ = strconv.ParseFloat(string(s[:len(s)-2]), 64)
 		unitstr = string(s[len(s)-2:])
 	}
 
@@ -123,7 +129,7 @@ func (m *manager) ParseVolume(c *Config) {
 	case "K", "KB":
 		unit *= 1024
 	}
-	m.thresholdSize = int64(p) * unit
+	m.thresholdSize = int64(p * unit)
 }
 
 // GenLogFileName generate the new log file name, filename should be absolute path
@@ -136,7 +142,20 @@ func (m *manager) GenLogFileName(c *Config) (filename string) {
 	}
 
 	m.lock.Lock()
-	filename = c.fileFormat(m.startAt)
+	// filename = c.fileFormat(m.startAt)
+
+	filename = LogFilePath(c)
+
+	if filename == c.lastLogFile {
+		m.rollingNum++
+		//新文件和最后文件名称相同，则滚动 lastFileName_n.ext
+		var ext = filepath.Ext(filename)
+		var rolExt = fmt.Sprintf("_%d%s", m.rollingNum, ext)
+		filename = strings.TrimRight(filename, ext) + rolExt
+	} else {
+		m.rollingNum = 0
+	}
+
 	// reset the start time to now
 	m.startAt = time.Now()
 	m.lock.Unlock()

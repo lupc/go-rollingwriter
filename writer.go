@@ -71,9 +71,9 @@ func NewWriterFromConfig(c *Config) (RollingWriter, error) {
 	}
 
 	// make dir for path if not exist
-	if err := os.MkdirAll(c.LogPath, 0700); err != nil {
-		return nil, err
-	}
+	// if err := os.MkdirAll(c.LogPath, 0700); err != nil {
+	// 	return nil, err
+	// }
 
 	filepath := LogFilePath(c)
 	// open the file and get the FD

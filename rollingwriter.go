@@ -6,6 +6,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -75,8 +77,12 @@ type Config struct {
 	// NOTICE: blank field will be ignored
 	// By default we using '-' as separator, you can set it yourself
 	TimeTagFormat string `json:"time_tag_format"`
-	LogPath       string `json:"log_path"`
-	FileName      string `json:"file_name"`
+	// 支持yyyy年 MM月 dd日 HH时 mm分 ss秒格式，需要用{}包含;
+	// 如 ./log/{yyyy-MM}/{dd}
+	LogPath string `json:"log_path"`
+	// 支持yyyy年 MM月 dd日 HH时 mm分 ss秒格式，需要用{}包含;
+	// 如 log_{HHmmss}.log
+	FileName string `json:"file_name"`
 	// FileExtension defines the log file extension. By default, it's 'log'
 	FileExtension string `json:"file_extension"`
 	// FileFormatter log file path formatter for the file start write
@@ -88,9 +94,9 @@ type Config struct {
 	// RollingPolicy give out the rolling policy
 	// We got 3 policies(actually, 2):
 	//
-	//	1. WithoutRolling: no rolling will happen
-	//	2. TimeRolling: rolling by time
-	//	3. VolumeRolling: rolling by file size
+	//	0. WithoutRolling: no rolling will happen
+	//	1. TimeRolling: rolling by time
+	//	2. VolumeRolling: rolling by file size
 	RollingPolicy      int    `json:"rolling_ploicy"`
 	RollingTimePattern string `json:"rolling_time_pattern"`
 	RollingVolumeSize  string `json:"rolling_volume_size"`
@@ -106,25 +112,29 @@ type Config struct {
 
 	// FilterEmptyBackup will not backup empty file if you set it true
 	FilterEmptyBackup bool `json:"filter_empty_backup"`
+
+	// 记录最后日志文件路径
+	lastLogFile string
 }
 
-func (c *Config) fileFormat(start time.Time) (filename string) {
-	if c.FileFormatter != nil {
-		filename = c.FileFormatter(start)
-		if c.Compress && filepath.Ext(filename) != ".gz" {
-			filename += ".gz"
-		}
-	} else {
-		// [path-to-log]/filename.[FileExtension].2007010215041517
-		timeTag := start.Format(c.TimeTagFormat)
-		if c.Compress {
-			filename = path.Join(c.LogPath, c.FileName+"."+c.FileExtension+".gz."+timeTag)
-		} else {
-			filename = path.Join(c.LogPath, c.FileName+"."+c.FileExtension+"."+timeTag)
-		}
-	}
-	return
-}
+// 格式化文件路径
+// func (c *Config) fileFormat(start time.Time) (filename string) {
+// 	if c.FileFormatter != nil {
+// 		filename = c.FileFormatter(start)
+// 		if c.Compress && filepath.Ext(filename) != ".gz" {
+// 			filename += ".gz"
+// 		}
+// 	} else {
+// 		// [path-to-log]/filename.[FileExtension].2007010215041517
+// 		timeTag := start.Format(c.TimeTagFormat)
+// 		if c.Compress {
+// 			filename = path.Join(c.LogPath, c.FileName+"."+c.FileExtension+".gz."+timeTag)
+// 		} else {
+// 			filename = path.Join(c.LogPath, c.FileName+"."+c.FileExtension+"."+timeTag)
+// 		}
+// 	}
+// 	return
+// }
 
 // NewDefaultConfig return the default config
 func NewDefaultConfig() Config {
@@ -144,8 +154,36 @@ func NewDefaultConfig() Config {
 }
 
 // LogFilePath return the absolute path on log file
-func LogFilePath(c *Config) (filepath string) {
-	filepath = path.Join(c.LogPath, c.FileName) + "." + c.FileExtension
+func LogFilePath(c *Config) (filePath string) {
+
+	filePath = path.Join(c.LogPath, c.FileName) + "." + c.FileExtension
+
+	//替换时间yyyyMMddHHmmss等
+	var now = time.Now()
+	var re, _ = regexp.Compile(`\{.+\}`)
+	if re != nil {
+		var ms = re.FindAllString(filePath, -1)
+		if len(ms) > 0 {
+			for _, m := range ms {
+				var format = strings.ReplaceAll(m, "{", "")
+				format = strings.ReplaceAll(format, "}", "")
+				format = strings.ReplaceAll(format, "yyyy", "2006")
+				format = strings.ReplaceAll(format, "MM", "01")
+				format = strings.ReplaceAll(format, "dd", "02")
+				format = strings.ReplaceAll(format, "HH", "15")
+				format = strings.ReplaceAll(format, "mm", "04")
+				format = strings.ReplaceAll(format, "ss", "05")
+				filePath = strings.ReplaceAll(filePath, m, now.Format(format))
+			}
+		}
+	}
+
+	//创建目录
+	path := filepath.Dir(filePath)
+	_ = os.MkdirAll(path, 0755)
+
+	c.lastLogFile = filePath
+
 	return
 }
 
