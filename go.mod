@@ -1,6 +1,6 @@
-module github.com/arthurkiller/rollingwriter
+module github.com/lupc/go-rollingwriter
 
-go 1.12
+go 1.20
 
 require (
 	github.com/robfig/cron v1.1.0
