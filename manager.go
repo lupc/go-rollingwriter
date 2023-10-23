@@ -59,7 +59,11 @@ func NewManager(c *Config) (Manager, error) {
 		return m, nil
 	case TimeRolling:
 		if err := m.cr.AddFunc(c.RollingTimePattern, func() {
-			m.fire <- m.GenLogFileName(c)
+			var fname = m.GenLogFileName(c)
+			if len(fname) > 0 {
+				m.fire <- fname
+			}
+
 		}); err != nil {
 			return nil, err
 		}
@@ -72,8 +76,8 @@ func NewManager(c *Config) (Manager, error) {
 			defer timer.Stop()
 
 			// filepath := LogFilePath(c)
-			var file *os.File
-			var err error
+			// var file *os.File
+			// var err error
 			m.wg.Done()
 
 			for {
@@ -81,13 +85,17 @@ func NewManager(c *Config) (Manager, error) {
 				case <-m.context:
 					return
 				case <-timer.C:
-					if file, err = os.Open(m.lastFile); err != nil {
-						continue
+					// if file, err = os.Open(m.lastFile); err != nil {
+					// 	continue
+					// }
+					// if info, err := file.Stat(); err == nil && info.Size() > m.thresholdSize {
+					// 	m.fire <- m.GenLogFileName(c)
+					// }
+					// file.Close()
+					var fname = m.GenLogFileName(c)
+					if len(fname) > 0 {
+						m.fire <- fname
 					}
-					if info, err := file.Stat(); err == nil && info.Size() > m.thresholdSize {
-						m.fire <- m.GenLogFileName(c)
-					}
-					file.Close()
 				}
 			}
 		}()
@@ -165,19 +173,30 @@ func (m *manager) GenLogFileName(c *Config) (filename string) {
 	m.lock.Lock()
 	// filename = c.fileFormat(m.startAt)
 
+	filename = ""
 	LogFile := LogFilePath(c)
 
 	if LogFile == m.lastBaseFile {
-		m.rollingNum++
-		//新文件和最后文件名称相同，则滚动 lastFileName_n.ext
-		var ext = filepath.Ext(LogFile)
-		var rolExt = fmt.Sprintf("_%d%s", m.rollingNum, ext)
-		filename = strings.TrimRight(LogFile, ext) + rolExt
+
+		if file, err := os.Open(LogFile); err == nil {
+			if info, err := file.Stat(); err == nil && info.Size() > m.thresholdSize {
+				m.rollingNum++
+				//新文件和最后文件名称相同，则滚动 lastFileName_n.ext
+				var ext = filepath.Ext(LogFile)
+				var rolExt = fmt.Sprintf("_%d%s", m.rollingNum, ext)
+				filename = strings.TrimRight(LogFile, ext) + rolExt
+			}
+			file.Close()
+		}
+
 	} else {
 		m.rollingNum = 0
 	}
 	m.lastBaseFile = LogFile
 	m.lastFile = filename
+	if m.lastFile == "" {
+		m.lastFile = m.lastBaseFile
+	}
 	// reset the start time to now
 	m.startAt = time.Now()
 	m.lock.Unlock()
