@@ -144,18 +144,18 @@ func (m *manager) GenLogFileName(c *Config) (filename string) {
 	m.lock.Lock()
 	// filename = c.fileFormat(m.startAt)
 
-	filename = LogFilePath(c)
+	LogFile := LogFilePath(c)
 
-	if filename == c.lastLogFile {
+	if LogFile == c.lastLogFile {
 		m.rollingNum++
 		//新文件和最后文件名称相同，则滚动 lastFileName_n.ext
-		var ext = filepath.Ext(filename)
+		var ext = filepath.Ext(LogFile)
 		var rolExt = fmt.Sprintf("_%d%s", m.rollingNum, ext)
-		filename = strings.TrimRight(filename, ext) + rolExt
+		filename = strings.TrimRight(LogFile, ext) + rolExt
 	} else {
 		m.rollingNum = 0
 	}
-	c.lastLogFile = filename
+	c.lastLogFile = LogFile
 	// reset the start time to now
 	m.startAt = time.Now()
 	m.lock.Unlock()
