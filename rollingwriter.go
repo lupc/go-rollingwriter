@@ -22,7 +22,7 @@ var (
 	// BufferSize defined the buffer size, by default 1 KB buffer will be allocated
 	BufferSize = 1024
 	// QueueSize defined the queue size for asynchronize write
-	QueueSize = 1024
+	QueueSize = 1024 * 10
 	// Precision defined the precision about the reopen operation condition
 	// check duration within second
 	Precision = 1

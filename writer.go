@@ -367,8 +367,9 @@ func (w *AsynchronousWriter) Write(b []byte) (int, error) {
 		select {
 		case w.queue <- append(_asyncBufferPool.Get().([]byte)[0:0], b...)[:len(b)]:
 			return len(b), nil
-		default:
-			return 0, ErrQueueFull
+			// default:
+			// 	fmt.Printf("write bytes len:%v", len(b))
+			// 	return 0, ErrQueueFull
 		}
 	}
 
