@@ -182,7 +182,7 @@ func LogFilePath(c *Config) (filePath string) {
 	path := filepath.Dir(filePath)
 	_ = os.MkdirAll(path, 0755)
 
-	c.lastLogFile = filePath
+	// c.lastLogFile = filePath
 
 	return
 }

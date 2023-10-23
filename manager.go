@@ -155,7 +155,7 @@ func (m *manager) GenLogFileName(c *Config) (filename string) {
 	} else {
 		m.rollingNum = 0
 	}
-
+	c.lastLogFile = filename
 	// reset the start time to now
 	m.startAt = time.Now()
 	m.lock.Unlock()
