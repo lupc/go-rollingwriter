@@ -48,6 +48,10 @@ type Manager interface {
 	Fire() chan string
 	// Close the Manager
 	Close()
+
+	GetThresholdSize() (size int64)
+
+	GenLogFileName(c *Config) (filename string)
 }
 
 // RollingWriter implement the io writer
@@ -112,9 +116,6 @@ type Config struct {
 
 	// FilterEmptyBackup will not backup empty file if you set it true
 	FilterEmptyBackup bool `json:"filter_empty_backup"`
-
-	// 记录最后日志文件路径
-	lastLogFile string
 }
 
 // 格式化文件路径

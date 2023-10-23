@@ -24,6 +24,7 @@ type Writer struct {
 	fire          chan string
 	cf            *Config
 	rollingfilech chan string
+	fileSize      int64 //记录文件大小
 }
 
 // LockedWriter provide a synchronous writer with lock
@@ -75,9 +76,9 @@ func NewWriterFromConfig(c *Config) (RollingWriter, error) {
 	// 	return nil, err
 	// }
 
-	filepath := LogFilePath(c)
+	filePath := LogFilePath(c)
 	// open the file and get the FD
-	file, err := os.OpenFile(filepath, DefaultFileFlag, DefaultFileMode)
+	file, err := os.OpenFile(filePath, DefaultFileFlag, DefaultFileMode)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +93,7 @@ func NewWriterFromConfig(c *Config) (RollingWriter, error) {
 	writer := Writer{
 		m:       mng,
 		file:    file,
-		absPath: filepath,
+		absPath: filePath,
 		fire:    mng.Fire(),
 		cf:      c,
 	}
@@ -310,6 +311,11 @@ func (w *Writer) Reopen(file string) error {
 	return nil
 }
 
+// 获取文件大小
+func (w *Writer) GetFileSize() (size int64) {
+	return w.fileSize
+}
+
 func (w *Writer) Write(b []byte) (int, error) {
 	var ok = false
 	for !ok {
@@ -325,6 +331,10 @@ func (w *Writer) Write(b []byte) (int, error) {
 
 	fp := atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&w.file)))
 	file := (*os.File)(fp)
+	var n, err = file.Write(b)
+	if err == nil {
+		atomic.AddInt64(&w.fileSize, int64(n))
+	}
 	return file.Write(b)
 }
 
@@ -345,6 +355,9 @@ func (w *LockedWriter) Write(b []byte) (n int, err error) {
 	}
 
 	n, err = w.file.Write(b)
+	if err == nil {
+		atomic.AddInt64(&w.fileSize, int64(n))
+	}
 	w.Unlock()
 	return
 }
@@ -364,13 +377,22 @@ func (w *AsynchronousWriter) Write(b []byte) (int, error) {
 			}
 		}
 
-		select {
-		case w.queue <- append(_asyncBufferPool.Get().([]byte)[0:0], b...)[:len(b)]:
-			return len(b), nil
-			// default:
-			// 	fmt.Printf("write bytes len:%v", len(b))
-			// 	return 0, ErrQueueFull
+		// select {
+		// case w.queue <- append(_asyncBufferPool.Get().([]byte)[0:0], b...)[:len(b)]:
+		// 	return len(b), nil
+		// default:
+		// 	fmt.Printf("write bytes len:%v", len(b))
+		// 	return 0, ErrQueueFull
+		// }
+
+		var n = len(b)
+		if n > 0 {
+			w.queue <- append(_asyncBufferPool.Get().([]byte)[0:0], b...)[:n]
+			atomic.AddInt64(&w.fileSize, int64(n))
+
+			return n, nil
 		}
+
 	}
 
 	return 0, ErrClosed

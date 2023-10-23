@@ -21,6 +21,10 @@ type manager struct {
 	wg            sync.WaitGroup
 	lock          sync.Mutex
 	rollingNum    int32 //滚动编号
+
+	lastBaseFile string // 最后日志文件（不滚动的）
+	lastFile     string //最后记录的日志文件
+
 }
 
 // NewManager generate the Manager with config
@@ -35,12 +39,15 @@ func NewManager(c *Config) (Manager, error) {
 	}
 
 	//查找相同名称的文件计算出rollingNum
-	var fpath = LogFilePath(c)
+	if m.lastBaseFile == "" {
+		m.lastBaseFile = LogFilePath(c)
+		m.lastFile = m.lastBaseFile
+	}
+	var fpath = m.lastBaseFile
 	var ext = filepath.Ext(fpath)
 	var mpath = strings.ReplaceAll(fpath, ext, fmt.Sprintf("_*%s", ext))
 	var matchFiles, err = filepath.Glob(mpath)
 	if err == nil {
-		c.lastLogFile = fpath
 		m.rollingNum = int32(len(matchFiles))
 	}
 
@@ -64,7 +71,7 @@ func NewManager(c *Config) (Manager, error) {
 			timer := time.NewTicker(time.Duration(Precision) * time.Second)
 			defer timer.Stop()
 
-			filepath := LogFilePath(c)
+			// filepath := LogFilePath(c)
 			var file *os.File
 			var err error
 			m.wg.Done()
@@ -74,7 +81,7 @@ func NewManager(c *Config) (Manager, error) {
 				case <-m.context:
 					return
 				case <-timer.C:
-					if file, err = os.Open(filepath); err != nil {
+					if file, err = os.Open(m.lastFile); err != nil {
 						continue
 					}
 					if info, err := file.Stat(); err == nil && info.Size() > m.thresholdSize {
@@ -98,6 +105,10 @@ func (m *manager) Fire() chan string {
 func (m *manager) Close() {
 	close(m.context)
 	m.cr.Stop()
+}
+
+func (m *manager) GetThresholdSize() (size int64) {
+	return m.thresholdSize
 }
 
 // ParseVolume parse the config volume format and return threshold
@@ -156,7 +167,7 @@ func (m *manager) GenLogFileName(c *Config) (filename string) {
 
 	LogFile := LogFilePath(c)
 
-	if LogFile == c.lastLogFile {
+	if LogFile == m.lastBaseFile {
 		m.rollingNum++
 		//新文件和最后文件名称相同，则滚动 lastFileName_n.ext
 		var ext = filepath.Ext(LogFile)
@@ -165,7 +176,8 @@ func (m *manager) GenLogFileName(c *Config) (filename string) {
 	} else {
 		m.rollingNum = 0
 	}
-	c.lastLogFile = LogFile
+	m.lastBaseFile = LogFile
+	m.lastFile = filename
 	// reset the start time to now
 	m.startAt = time.Now()
 	m.lock.Unlock()
