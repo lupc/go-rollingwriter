@@ -34,6 +34,16 @@ func NewManager(c *Config) (Manager, error) {
 		rollingNum: 0,
 	}
 
+	//查找相同名称的文件计算出rollingNum
+	var fpath = LogFilePath(c)
+	var ext = filepath.Ext(fpath)
+	var mpath = strings.ReplaceAll(fpath, ext, fmt.Sprintf("_*%s", ext))
+	var matchFiles, err = filepath.Glob(mpath)
+	if err == nil {
+		c.lastLogFile = fpath
+		m.rollingNum = int32(len(matchFiles))
+	}
+
 	// start the manager according to policy
 	switch c.RollingPolicy {
 	default:
