@@ -188,8 +188,7 @@ func (m *manager) GenLogFileName(c *Config) (logFileRolling string, isSuc bool) 
 	if LogFile == m.lastBaseFile {
 
 		if size, err := getFileSize(m.lastFile); err == nil {
-
-			fmt.Printf("path:%v,size:%v\n", LogFile, size)
+			// fmt.Printf("path:%v,size:%v\n", LogFile, size)
 			if size > m.thresholdSize {
 				m.rollingNum++
 				//新文件和最后文件名称相同，则滚动 lastFileName_n.ext
