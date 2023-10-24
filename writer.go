@@ -263,16 +263,16 @@ func (w *Writer) Reopen(file string) error {
 	}
 
 	w.file.Close()
-	if err := os.Rename(w.absPath, file); err != nil {
-		return err
-	}
-	newfile, err := os.OpenFile(w.absPath, DefaultFileFlag, DefaultFileMode)
+	// if err := os.Rename(w.absPath, file); err != nil {
+	// 	return err
+	// }
+	newfile, err := os.OpenFile(file, DefaultFileFlag, DefaultFileMode)
 	if err != nil {
 		return err
 	}
 
 	w.file = newfile
-
+	w.fileSize = 0
 	go func() {
 		if w.cf.Compress {
 			if err := os.Rename(file, file+".tmp"); err != nil {

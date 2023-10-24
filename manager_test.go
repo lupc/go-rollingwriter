@@ -66,12 +66,12 @@ func TestGenLogFileName(t *testing.T) {
 	}
 	m.startAt = time.Now()
 
-	dest := m.GenLogFileName(c)
+	dest, _ := m.GenLogFileName(c)
 	timetag := m.startAt.Format(c.TimeTagFormat)
 	assert.Equal(t, path.Join("./", "file"+".log."+timetag), dest)
 
 	c.Compress = true
-	dest = m.GenLogFileName(c)
+	dest, _ = m.GenLogFileName(c)
 	timetag = m.startAt.Format(c.TimeTagFormat)
 	assert.Equal(t, path.Join("./", "file"+".log.gz."+timetag), dest)
 }

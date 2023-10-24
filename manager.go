@@ -59,8 +59,8 @@ func NewManager(c *Config) (Manager, error) {
 		return m, nil
 	case TimeRolling:
 		if err := m.cr.AddFunc(c.RollingTimePattern, func() {
-			var fname = m.GenLogFileName(c)
-			if len(fname) > 0 {
+			var fname, isSuc = m.GenLogFileName(c)
+			if isSuc {
 				m.fire <- fname
 			}
 
@@ -92,8 +92,8 @@ func NewManager(c *Config) (Manager, error) {
 					// 	m.fire <- m.GenLogFileName(c)
 					// }
 					// file.Close()
-					var fname = m.GenLogFileName(c)
-					if len(fname) > 0 {
+					var fname, isSuc = m.GenLogFileName(c)
+					if isSuc {
 						m.fire <- fname
 					}
 				}
@@ -161,8 +161,16 @@ func (m *manager) ParseVolume(c *Config) {
 	m.thresholdSize = int64(p * unit)
 }
 
+func getFileSize(filename string) (int64, error) {
+	fi, err := os.Stat(filename)
+	if err != nil {
+		return 0, err
+	}
+	return fi.Size(), nil
+}
+
 // GenLogFileName generate the new log file name, filename should be absolute path
-func (m *manager) GenLogFileName(c *Config) (filename string) {
+func (m *manager) GenLogFileName(c *Config) (logFileRolling string, isSuc bool) {
 	// if fileextention is not set, use the default value
 	// this line is added to provide backwards compatibility with the current code and unit tests
 	// in the next major release, this line should be removed.
@@ -173,30 +181,30 @@ func (m *manager) GenLogFileName(c *Config) (filename string) {
 	m.lock.Lock()
 	// filename = c.fileFormat(m.startAt)
 
-	filename = ""
+	logFileRolling = ""
+	isSuc = false
 	LogFile := LogFilePath(c)
 
 	if LogFile == m.lastBaseFile {
 
-		if file, err := os.Open(LogFile); err == nil {
-			if info, err := file.Stat(); err == nil && info.Size() > m.thresholdSize {
+		if size, err := getFileSize(m.lastFile); err == nil {
+
+			fmt.Printf("path:%v,size:%v\n", LogFile, size)
+			if size > m.thresholdSize {
 				m.rollingNum++
 				//新文件和最后文件名称相同，则滚动 lastFileName_n.ext
 				var ext = filepath.Ext(LogFile)
 				var rolExt = fmt.Sprintf("_%d%s", m.rollingNum, ext)
-				filename = strings.TrimRight(LogFile, ext) + rolExt
+				logFileRolling = strings.TrimRight(LogFile, ext) + rolExt
+				m.lastFile = logFileRolling
+				isSuc = true
 			}
-			file.Close()
 		}
 
 	} else {
 		m.rollingNum = 0
 	}
 	m.lastBaseFile = LogFile
-	m.lastFile = filename
-	if m.lastFile == "" {
-		m.lastFile = m.lastBaseFile
-	}
 	// reset the start time to now
 	m.startAt = time.Now()
 	m.lock.Unlock()
