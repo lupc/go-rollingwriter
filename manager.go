@@ -70,36 +70,36 @@ func NewManager(c *Config) (Manager, error) {
 		m.cr.Start()
 	case VolumeRolling:
 		m.ParseVolume(c)
-		m.wg.Add(1)
-		go func() {
-			timer := time.NewTicker(time.Duration(Precision) * time.Second)
-			defer timer.Stop()
+		// m.wg.Add(1)
+		// go func() {
+		// 	timer := time.NewTicker(time.Duration(Precision) * time.Second)
+		// 	defer timer.Stop()
 
-			// filepath := LogFilePath(c)
-			// var file *os.File
-			// var err error
-			m.wg.Done()
+		// 	// filepath := LogFilePath(c)
+		// 	// var file *os.File
+		// 	// var err error
+		// 	m.wg.Done()
 
-			for {
-				select {
-				case <-m.context:
-					return
-				case <-timer.C:
-					// if file, err = os.Open(m.lastFile); err != nil {
-					// 	continue
-					// }
-					// if info, err := file.Stat(); err == nil && info.Size() > m.thresholdSize {
-					// 	m.fire <- m.GenLogFileName(c)
-					// }
-					// file.Close()
-					var fname, isSuc = m.GenLogFileName(c)
-					if isSuc {
-						m.fire <- fname
-					}
-				}
-			}
-		}()
-		m.wg.Wait()
+		// 	for {
+		// 		select {
+		// 		case <-m.context:
+		// 			return
+		// 		case <-timer.C:
+		// 			// if file, err = os.Open(m.lastFile); err != nil {
+		// 			// 	continue
+		// 			// }
+		// 			// if info, err := file.Stat(); err == nil && info.Size() > m.thresholdSize {
+		// 			// 	m.fire <- m.GenLogFileName(c)
+		// 			// }
+		// 			// file.Close()
+		// 			var fname, isSuc = m.GenLogFileName(c)
+		// 			if isSuc {
+		// 				m.fire <- fname
+		// 			}
+		// 		}
+		// 	}
+		// }()
+		// m.wg.Wait()
 	}
 	return m, nil
 }

@@ -387,9 +387,17 @@ func (w *AsynchronousWriter) Write(b []byte) (int, error) {
 
 		var n = len(b)
 		if n > 0 {
+
 			w.queue <- append(_asyncBufferPool.Get().([]byte)[0:0], b...)[:n]
 			atomic.AddInt64(&w.fileSize, int64(n))
 
+			//检测文件大小是否满足滚动
+			if w.fileSize > w.m.GetThresholdSize() {
+				var fname, isSuc = w.m.GenLogFileName(w.cf)
+				if isSuc {
+					w.m.Fire() <- fname
+				}
+			}
 			return n, nil
 		}
 

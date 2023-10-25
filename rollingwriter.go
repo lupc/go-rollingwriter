@@ -51,7 +51,7 @@ type Manager interface {
 
 	GetThresholdSize() (size int64)
 
-	// GenLogFileName(c *Config) (filename string)
+	GenLogFileName(c *Config) (filename string, isSuc bool)
 }
 
 // RollingWriter implement the io writer
