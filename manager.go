@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,7 +17,8 @@ type manager struct {
 	thresholdSize int64
 	startAt       time.Time
 	fire          chan string
-	cr            *cron.Cron
+	crRolling     *cron.Cron //定时滚动日志任务
+	crClear       *cron.Cron //定时清理日志任务
 	context       chan int
 	wg            sync.WaitGroup
 	lock          sync.Mutex
@@ -31,11 +33,38 @@ type manager struct {
 func NewManager(c *Config) (Manager, error) {
 	m := &manager{
 		startAt:    time.Now(),
-		cr:         cron.New(),
+		crRolling:  cron.New(),
+		crClear:    cron.New(),
 		fire:       make(chan string),
 		context:    make(chan int),
 		wg:         sync.WaitGroup{},
 		rollingNum: 0,
+	}
+
+	if c.MaxAge > 0 {
+		m.crClear.AddFunc(c.ClearTimePattern, func() {
+			var fpath = filepath.Join(c.LogPath, c.FileName+"_*."+c.FileExtension)
+			var reg, err = regexp.Compile(`\{.*?\}`)
+			if err == nil {
+				fpath = reg.ReplaceAllString(fpath, "*")
+			}
+
+			files, err := filepath.Glob(fpath)
+			if err == nil && len(files) > 0 {
+				for _, file := range files {
+					info, err := os.Stat(file)
+					if err == nil {
+						var ts = time.Since(info.ModTime())
+						var hours = ts.Hours()
+						if hours > float64(c.MaxAge*24) {
+							os.Remove(file)
+						}
+					}
+
+				}
+			}
+		})
+		m.crClear.Start()
 	}
 
 	//查找相同名称的文件计算出rollingNum
@@ -58,7 +87,7 @@ func NewManager(c *Config) (Manager, error) {
 	case WithoutRolling:
 		return m, nil
 	case TimeRolling:
-		if err := m.cr.AddFunc(c.RollingTimePattern, func() {
+		if err := m.crRolling.AddFunc(c.RollingTimePattern, func() {
 			var fname, isSuc = m.GenLogFileName(c)
 			if isSuc {
 				m.fire <- fname
@@ -67,7 +96,7 @@ func NewManager(c *Config) (Manager, error) {
 		}); err != nil {
 			return nil, err
 		}
-		m.cr.Start()
+		m.crRolling.Start()
 	case VolumeRolling:
 		m.ParseVolume(c)
 		// m.wg.Add(1)
@@ -112,7 +141,8 @@ func (m *manager) Fire() chan string {
 // Close return stop the manager and return
 func (m *manager) Close() {
 	close(m.context)
-	m.cr.Stop()
+	m.crRolling.Stop()
+	m.crClear.Stop()
 }
 
 func (m *manager) GetThresholdSize() (size int64) {

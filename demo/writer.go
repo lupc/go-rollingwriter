@@ -12,10 +12,10 @@ func main() {
 	// writer 实现了 io.Writer 的全部接口
 	// 使用配置方式生成一个 writer 或者 Option 都可以
 	config := rollingwriter.Config{
-		LogPath:       "./log",        //日志路径
-		TimeTagFormat: "060102150405", //时间格式串
-		FileName:      "test",         //日志文件名
-		MaxRemain:     0,              //配置日志最大存留数
+		LogPath:       "./log/{yyyy-MM-dd}", //日志路径
+		TimeTagFormat: "060102150405",       //时间格式串
+		FileName:      "test",               //日志文件名
+		MaxRemain:     0,                    //配置日志最大存留数
 
 		// 目前有2中滚动策略: 按照时间滚动按照大小滚动
 		// - 时间滚动: 配置策略如同 crontable, 例如,每天0:0切分, 则配置 0 0 0 * * *
@@ -35,6 +35,9 @@ func main() {
 		BufferWriterThershould: 8 * 1024 * 1024,
 		// Compress will compress log file with gzip
 		Compress: false,
+
+		MaxAge:           1,
+		ClearTimePattern: "0/5 * * * * *",
 	}
 
 	// 创建一个 writer

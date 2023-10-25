@@ -103,6 +103,7 @@ type Config struct {
 	//	2. VolumeRolling: rolling by file size
 	RollingPolicy      int    `json:"rolling_ploicy"`
 	RollingTimePattern string `json:"rolling_time_pattern"`
+	ClearTimePattern   string `json:"clear_time_pattern"`
 	RollingVolumeSize  string `json:"rolling_volume_size"`
 
 	// WriterMode in 4 modes below
@@ -116,6 +117,9 @@ type Config struct {
 
 	// FilterEmptyBackup will not backup empty file if you set it true
 	FilterEmptyBackup bool `json:"filter_empty_backup"`
+
+	// 文件保存时间，单位天
+	MaxAge int `json:"max_age"`
 }
 
 // 格式化文件路径
@@ -140,13 +144,14 @@ type Config struct {
 // NewDefaultConfig return the default config
 func NewDefaultConfig() Config {
 	return Config{
-		LogPath:                "./log",
+		LogPath:                "./log/{yyyy-MM-dd}",
 		TimeTagFormat:          "200601021504",
-		FileName:               "log",
+		FileName:               "log_{yyyyMMdd}",
 		FileExtension:          "log",
-		MaxRemain:              -1,            // disable auto delete
-		RollingPolicy:          1,             // TimeRotate by default
-		RollingTimePattern:     "0 0 0 * * *", // Rolling at 00:00 AM everyday
+		MaxRemain:              -1,               // disable auto delete
+		RollingPolicy:          1,                // TimeRotate by default
+		RollingTimePattern:     "0 0 0 * * *",    // Rolling at 00:00 AM everyday
+		ClearTimePattern:       "0/10 * * * * *", // Clear at 02:00 AM everyday
 		RollingVolumeSize:      "1G",
 		WriterMode:             "lock",
 		BufferWriterThershould: 64,
