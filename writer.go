@@ -82,6 +82,11 @@ func NewWriterFromConfig(c *Config) (RollingWriter, error) {
 	if err != nil {
 		return nil, err
 	}
+	fi, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	var fileSize = fi.Size()
 
 	// Start the Manager
 	mng, err := NewManager(c)
@@ -91,11 +96,12 @@ func NewWriterFromConfig(c *Config) (RollingWriter, error) {
 
 	var rollingWriter RollingWriter
 	writer := Writer{
-		m:       mng,
-		file:    file,
-		absPath: filePath,
-		fire:    mng.Fire(),
-		cf:      c,
+		m:        mng,
+		file:     file,
+		absPath:  filePath,
+		fire:     mng.Fire(),
+		cf:       c,
+		fileSize: fileSize,
 	}
 
 	if c.MaxRemain > 0 {
@@ -387,10 +393,6 @@ func (w *AsynchronousWriter) Write(b []byte) (int, error) {
 
 		var n = len(b)
 		if n > 0 {
-
-			w.queue <- append(_asyncBufferPool.Get().([]byte)[0:0], b...)[:n]
-			atomic.AddInt64(&w.fileSize, int64(n))
-
 			//检测文件大小是否满足滚动
 			if w.fileSize > w.m.GetThresholdSize() {
 				var fname, isSuc = w.m.GenLogFileName(w.cf)
@@ -398,6 +400,9 @@ func (w *AsynchronousWriter) Write(b []byte) (int, error) {
 					w.m.Fire() <- fname
 				}
 			}
+
+			w.queue <- append(_asyncBufferPool.Get().([]byte)[0:0], b...)[:n]
+			atomic.AddInt64(&w.fileSize, int64(n))
 			return n, nil
 		}
 
