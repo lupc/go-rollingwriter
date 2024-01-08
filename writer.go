@@ -225,21 +225,21 @@ func (w *Writer) DoRemove() {
 }
 
 // CompressFile compress log file write into .gz
-func (w *Writer) CompressFile(oldfile *os.File, cmpname string) error {
-	cmpfile, err := os.OpenFile(cmpname, DefaultFileFlag, DefaultFileMode)
+func (w *Writer) CompressFile(oldFile *os.File, cmpName string) error {
+	cmpFile, err := os.OpenFile(cmpName, DefaultFileFlag, DefaultFileMode)
 	if err != nil {
 		return err
 	}
-	defer cmpfile.Close()
-	gw := gzip.NewWriter(cmpfile)
+	defer cmpFile.Close()
+	gw := gzip.NewWriter(cmpFile)
 	defer gw.Close()
 
-	if _, err = oldfile.Seek(0, 0); err != nil {
+	if _, err = oldFile.Seek(0, 0); err != nil {
 		return err
 	}
 
-	if _, err = io.Copy(gw, oldfile); err != nil {
-		if errR := os.Remove(cmpname); errR != nil {
+	if _, err = io.Copy(gw, oldFile); err != nil {
+		if errR := os.Remove(cmpName); errR != nil {
 			return errR
 		}
 		return err

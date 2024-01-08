@@ -223,7 +223,10 @@ func (m *manager) GenLogFileName(c *Config) (logFileRolling string, isSuc bool) 
 
 				//新文件和最后文件名称相同，则滚动 lastFileName_n.ext
 				var ext = filepath.Ext(LogFile)
-				var rolExt = fmt.Sprintf("_%d%s", m.rollingNum, ext)
+				rolExt := ext
+				if m.rollingNum > 0 {
+					rolExt = fmt.Sprintf("_%d%s", m.rollingNum, ext)
+				}
 				logFileRolling = strings.TrimRight(LogFile, ext) + rolExt
 				m.lastFile = logFileRolling
 				isSuc = true
