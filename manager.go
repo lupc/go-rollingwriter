@@ -77,7 +77,7 @@ func NewManager(c *Config) (Manager, error) {
 	var mpath = strings.ReplaceAll(fpath, ext, fmt.Sprintf("_*%s", ext))
 	var matchFiles, err = filepath.Glob(mpath)
 	if err == nil {
-		m.rollingNum = int32(len(matchFiles))
+		m.rollingNum = int32(len(matchFiles)) - 1
 	}
 
 	// start the manager according to policy
@@ -220,13 +220,14 @@ func (m *manager) GenLogFileName(c *Config) (logFileRolling string, isSuc bool) 
 		if size, err := getFileSize(m.lastFile); err == nil {
 			// fmt.Printf("path:%v,size:%v\n", LogFile, size)
 			if size > m.thresholdSize {
-				m.rollingNum++
+
 				//新文件和最后文件名称相同，则滚动 lastFileName_n.ext
 				var ext = filepath.Ext(LogFile)
 				var rolExt = fmt.Sprintf("_%d%s", m.rollingNum, ext)
 				logFileRolling = strings.TrimRight(LogFile, ext) + rolExt
 				m.lastFile = logFileRolling
 				isSuc = true
+				m.rollingNum++
 			}
 		}
 

@@ -22,7 +22,7 @@ func main() {
 		// - 大小滚动: 配置单个日志文件(未压缩)的滚动大小门限, 如1G, 500M
 		RollingPolicy:      rollingwriter.VolumeRolling, //配置滚动策略 norolling timerolling volumerolling
 		RollingTimePattern: "0 0 0 * * *",               //配置时间滚动策略
-		RollingVolumeSize:  "1M",                        //配置截断文件下限大小
+		RollingVolumeSize:  "50M",                       //配置截断文件下限大小
 
 		// writer 支持4种不同的 mode:
 		// 1. none 2. lock

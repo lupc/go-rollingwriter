@@ -256,7 +256,7 @@ func AsynchronousWriterErrorChan(wr RollingWriter) (chan error, error) {
 }
 
 // Reopen do the rotate, open new file and swap FD then trate the old FD
-func (w *Writer) Reopen(file string) error {
+func (w *Writer) Reopen(filePath string) error {
 	if w.cf.FilterEmptyBackup {
 		fileInfo, err := w.file.Stat()
 		if err != nil {
@@ -272,32 +272,32 @@ func (w *Writer) Reopen(file string) error {
 	// if err := os.Rename(w.absPath, file); err != nil {
 	// 	return err
 	// }
-	newfile, err := os.OpenFile(file, DefaultFileFlag, DefaultFileMode)
+	newFile, err := os.OpenFile(filePath, DefaultFileFlag, DefaultFileMode)
 	if err != nil {
 		return err
 	}
 
-	w.file = newfile
-	w.fileSize = 0
+	w.file = newFile
+	w.fileSize, err = getFileSize(filePath)
 	go func() {
 		if w.cf.Compress {
-			if err := os.Rename(file, file+".tmp"); err != nil {
+			if err := os.Rename(filePath, filePath+".tmp"); err != nil {
 				log.Println("error in compress rename tempfile", err)
 				return
 			}
-			oldfile, err := os.OpenFile(file+".tmp", DefaultFileFlag, DefaultFileMode)
+			oldFile, err := os.OpenFile(filePath+".tmp", DefaultFileFlag, DefaultFileMode)
 			if err != nil {
 				log.Println("error in open tempfile", err)
 				return
 			}
 			var closeOnce sync.Once
-			defer closeOnce.Do(func() { oldfile.Close() })
-			if err := w.CompressFile(oldfile, file); err != nil {
+			defer closeOnce.Do(func() { oldFile.Close() })
+			if err := w.CompressFile(oldFile, filePath); err != nil {
 				log.Println("error in compress log file", err)
 				return
 			}
-			closeOnce.Do(func() { oldfile.Close() })
-			err = os.Remove(file + ".tmp")
+			closeOnce.Do(func() { oldFile.Close() })
+			err = os.Remove(filePath + ".tmp")
 			if err != nil {
 				log.Println("error in remove tempfile", err)
 				return
@@ -307,7 +307,7 @@ func (w *Writer) Reopen(file string) error {
 		if w.cf.MaxRemain > 0 {
 		retry:
 			select {
-			case w.rollingfilech <- file:
+			case w.rollingfilech <- filePath:
 			default:
 				w.DoRemove()
 				goto retry // remove the file and retry
@@ -317,7 +317,7 @@ func (w *Writer) Reopen(file string) error {
 	return nil
 }
 
-// 获取文件大小
+// GetFileSize 获取文件大小
 func (w *Writer) GetFileSize() (size int64) {
 	return w.fileSize
 }
